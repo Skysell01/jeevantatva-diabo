@@ -1,5 +1,6 @@
 // ⚠️ GOOGLE APPS SCRIPT CONFIGURATION (Set via .env or fallback below)
 const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbyOm28QPFz_7CEqy1_5Ix2OdpzNrq_7Tgn-K3zOttZ64PGFYsnxg5d6oo1NUPBgPB_2/exec'; 
+const META_PIXEL_ID = '1121352917229185';
 const CRM_TOKEN = import.meta.env.VITE_CRM_TOKEN || 'M6JNcKxcNszQwNYZW';
 const CRM_CHANNEL_ID = import.meta.env.VITE_CRM_CHANNEL_ID || 'AMT-DBT-SKYSKM';
 const CRM_PRODUCT_ID = import.meta.env.VITE_CRM_PRODUCT_ID || '52'; 
@@ -98,6 +99,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      // 🚀 Fire Meta Pixel Lead Capture Event IMMEDIATELY upon submit
+      if (typeof window.fbq === 'function') {
+        window.fbq('track', 'Lead', {
+          content_name: 'Diabeet Lead Capture',
+          currency: 'INR',
+          value: 2490.00
+        });
+        console.log('✅ Meta Pixel Lead event fired immediately for Dataset ID:', META_PIXEL_ID);
+      }
 
       const formSource = form.closest('.modal-card') ? 'Modal Form' : (index === 0 ? 'Top Form' : 'Bottom Form');
 
@@ -143,15 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
           // Save lead submission in localStorage
           storedLeads[cleanPhone] = Date.now();
           localStorage.setItem('diabeet_submitted_leads', JSON.stringify(storedLeads));
-
-          // Trigger Meta Pixel Lead Event
-          if (typeof window.fbq === 'function') {
-            window.fbq('track', 'Lead', {
-              content_name: 'Diabeet Order',
-              value: 2490.00,
-              currency: 'INR'
-            });
-          }
 
           showStatusModal(
             'success',
