@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" fill="none">
+  <rect width="800" height="600" fill="#1e293b"/>
+  <rect x="20" y="20" width="760" height="560" rx="12" stroke="#334155" stroke-width="3" stroke-dasharray="8 8"/>
+  <g transform="translate(340, 220)">
+    <rect x="10" y="20" width="100" height="75" rx="8" stroke="#94a3b8" stroke-width="4" fill="none"/>
+    <circle cx="40" cy="45" r="12" fill="#f5914f"/>
+    <path d="M20 80 L45 55 L65 75 L75 65 L95 85" stroke="#94a3b8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="400" y="360" font-family="system-ui, -apple-system, Roboto, sans-serif" font-size="22" font-weight="600" fill="#f1f5f9" text-anchor="middle">صورة توضيحية (Placeholder Image)</text>
+  <text x="400" y="395" font-family="system-ui, -apple-system, Roboto, sans-serif" font-size="15" fill="#94a3b8" text-anchor="middle">استبدل رابط هذه الصورة بشرط src الخاص بك</text>
+  <text x="400" y="420" font-family="system-ui, -apple-system, Roboto, sans-serif" font-size="14" fill="#f5914f" text-anchor="middle">Replace with your image URL</text>
+</svg>
