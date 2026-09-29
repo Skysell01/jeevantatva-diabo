@@ -112,6 +112,14 @@ function handleRequest(e) {
       headerRange.setFontColor('#ffffff');
       headerRange.setHorizontalAlignment('center');
       sheet.setFrozenRows(1);
+    } else if (sheet.getRange(1, 7).getValue() === '') {
+      // अगर शीट में पहले से डेटा है पर 7वां CRM स्टेटस कॉलम नहीं है, तो हेडर जोड़ें
+      var crmHeaderCell = sheet.getRange(1, 7);
+      crmHeaderCell.setValue('CRM स्टेटस (CRM Status)');
+      crmHeaderCell.setFontWeight('bold');
+      crmHeaderCell.setBackground('#214728');
+      crmHeaderCell.setFontColor('#ffffff');
+      crmHeaderCell.setHorizontalAlignment('center');
     }
 
     var lastRow = sheet.getLastRow();
@@ -156,7 +164,7 @@ function handleRequest(e) {
     }
 
     // 5. CRM API में लीड भेजें
-    var crmStatus = 'Sent from Web';
+    var crmStatus = 'Pending';
     if (CRM_CONFIG.enabled && CRM_CONFIG.url && CRM_CONFIG.token) {
       try {
         var crmUrl = CRM_CONFIG.url + 
@@ -167,18 +175,32 @@ function handleRequest(e) {
           '&product_id=' + encodeURIComponent(CRM_CONFIG.product_id);
 
         var crmRes = UrlFetchApp.fetch(crmUrl, { muteHttpExceptions: true });
-        var crmText = crmRes.getContentText();
+        var crmText = (crmRes.getContentText() || '').trim();
+        Logger.log("📡 CRM Raw Response: " + crmText);
+        
+        var orderId = '';
         try {
           var crmJson = JSON.parse(crmText);
-          crmStatus = crmJson.message || crmText;
-          if (crmJson.orderid) {
-            crmStatus += ' (Order: ' + crmJson.orderid + ')';
+          orderId = crmJson.orderid || crmJson.order_id || crmJson.orderId || '';
+        } catch (jsonErr) {}
+
+        // अगर JSON में सीधा orderid नहीं मिला, तो टेक्स्ट से 6+ अंकों का नंबर निकालें
+        if (!orderId && crmText) {
+          var match = crmText.match(/(\d{6,})/);
+          if (match) {
+            orderId = match[1];
           }
-        } catch (jsonErr) {
+        }
+
+        if (crmText.toLowerCase().indexOf('new lead captured') !== -1) {
+          crmStatus = '✅ New Lead Captured' + (orderId ? ' (Order: ' + orderId + ')' : '');
+        } else if (crmText.toLowerCase().indexOf('user already exist') !== -1) {
+          crmStatus = '⚠️ User Already Exist';
+        } else {
           crmStatus = crmText;
         }
       } catch (crmErr) {
-        crmStatus = 'CRM Error: ' + crmErr.toString();
+        crmStatus = '❌ CRM Error: ' + crmErr.toString();
       }
     }
 
@@ -220,3 +242,23 @@ function createJsonResponse(outputObject) {
     .createTextOutput(JSON.stringify(outputObject))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+// ==============================================================================
+// 🧪 एडिटर में Run बटन दबाकर टेस्ट करने के लिए:
+// ==============================================================================
+function testSubmission() {
+  var randomNum = '9' + Math.floor(100000000 + Math.random() * 900000000);
+  var testEvent = {
+    parameter: {
+      name: "Apps Script Test Lead",
+      phone: randomNum,
+      cleanPhone: randomNum,
+      formSource: "Direct Apps Script Run"
+    }
+  };
+  
+  Logger.log("🧪 टेस्ट लीड भेजी जा रही है: " + randomNum);
+  var response = handleRequest(testEvent);
+  Logger.log("📋 रिजल्ट: " + response.getContent());
+}
+
