@@ -1,5 +1,5 @@
 // ⚠️ GOOGLE APPS SCRIPT CONFIGURATION (Set via .env or fallback below)
-const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbyOm28QPFz_7CEqy1_5Ix2OdpzNrq_7Tgn-K3zOttZ64PGFYsnxg5d6oo1NUPBgPB_2/exec'; 
+const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycby-lXmc8kjUADnipgJUCtnJTv6vr10BCKK4J9oZW3-LMu5YJC7FVhTJcwp14qw5U5Bp/exec'; 
 const META_PIXEL_ID = '1121352917229185';
 const CRM_TOKEN = import.meta.env.VITE_CRM_TOKEN || 'M6JNcKxcNszQwNYZW';
 const CRM_CHANNEL_ID = import.meta.env.VITE_CRM_CHANNEL_ID || 'AMT-DBT-SKYSKM';
