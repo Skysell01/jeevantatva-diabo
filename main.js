@@ -10,16 +10,20 @@ const CRM_PRODUCT_ID = import.meta.env.CRM_PRODUCT_ID || import.meta.env.VITE_CR
 
 // Helper function to send lead to Macherbs CRM
 async function sendLeadToCRM(name, cleanPhone) {
-  if (!CRM_URL || !CRM_TOKEN) return null;
+  const activeUrl = CRM_URL || 'https://macherbs.com/apileads/leads.php';
+  const activeToken = CRM_TOKEN || 'M6JNcKxcNszQwNYZW';
+  const activeChannel = CRM_CHANNEL_ID || 'AJ-DBT-SKM';
+  const activeProduct = CRM_PRODUCT_ID || '52';
+
   try {
     const crmParams = new URLSearchParams({
       name: name,
       number: cleanPhone,
-      token: CRM_TOKEN,
-      channel_id: CRM_CHANNEL_ID,
-      product_id: CRM_PRODUCT_ID
+      token: activeToken,
+      channel_id: activeChannel,
+      product_id: activeProduct
     });
-    const crmEndpoint = `${CRM_URL}?${crmParams.toString()}`;
+    const crmEndpoint = `${activeUrl}?${crmParams.toString()}`;
     console.log('📡 Sending lead to CRM:', crmEndpoint);
     const res = await fetch(crmEndpoint, {
       method: 'GET',
