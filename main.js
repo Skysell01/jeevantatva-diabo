@@ -170,8 +170,14 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           const targetSheetUrl = `${GOOGLE_SHEET_WEBHOOK_URL}${GOOGLE_SHEET_WEBHOOK_URL.includes('?') ? '&' : '?'}${sheetParams.toString()}`;
           try {
-            const res = await fetch(targetSheetUrl, { cache: 'no-cache' });
-            sheetRes = await res.json();
+            const res = await fetch(targetSheetUrl, { 
+              method: 'GET',
+              cache: 'no-cache',
+              credentials: 'omit'
+            });
+            if (res.ok) {
+              sheetRes = await res.json();
+            }
           } catch (err) {
             console.warn('Google Sheet fetch error:', err);
           }
