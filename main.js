@@ -1,12 +1,12 @@
 // ⚠️ GOOGLE APPS SCRIPT CONFIGURATION (Set via .env or fallback below)
-const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbwGEiUeYDdVoJSgk_QfkarxmJ7FmgeyovJIxukkzHN-gizDbdDLRvMVbRbz_yxPdfVC/exec'; 
+const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.GOOGLE_SHEET_WEBHOOK_URL || import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbwGEiUeYDdVoJSgk_QfkarxmJ7FmgeyovJIxukkzHN-gizDbdDLRvMVbRbz_yxPdfVC/exec'; 
 const META_PIXEL_ID = '1121352917229185';
 
 // ⚠️ CRM INTEGRATION (Macherbs Leads API)
-const CRM_URL = import.meta.env.VITE_CRM_URL || 'https://macherbs.com/apileads/leads.php';
-const CRM_TOKEN = import.meta.env.VITE_CRM_TOKEN || 'M6JNcKxcNszQwNYZW';
-const CRM_CHANNEL_ID = import.meta.env.VITE_CRM_CHANNEL_ID || 'AJ-DBT-SKM';
-const CRM_PRODUCT_ID = import.meta.env.VITE_CRM_PRODUCT_ID || '52'; 
+const CRM_URL = import.meta.env.CRM_URL || import.meta.env.VITE_CRM_URL || 'https://macherbs.com/apileads/leads.php';
+const CRM_TOKEN = import.meta.env.CRM_TOKEN || import.meta.env.VITE_CRM_TOKEN || 'M6JNcKxcNszQwNYZW';
+const CRM_CHANNEL_ID = import.meta.env.CRM_CHANNEL_ID || import.meta.env.VITE_CRM_CHANNEL_ID || 'AJ-DBT-SKM';
+const CRM_PRODUCT_ID = import.meta.env.CRM_PRODUCT_ID || import.meta.env.VITE_CRM_PRODUCT_ID || '52'; 
 
 // Helper function to send lead to Macherbs CRM
 async function sendLeadToCRM(name, cleanPhone) {
