@@ -20,6 +20,15 @@
  * ==============================================================================
  */
 
+// CRM Integration Settings (Macherbs Leads API)
+var CRM_CONFIG = {
+  enabled: true,
+  url: 'https://macherbs.com/apileads/leads.php',
+  token: 'M6JNcKxcNszQwNYZW',
+  channel_id: 'AJ-DBT-SKM',
+  product_id: '52'
+};
+
 function doGet(e) {
   return handleRequest(e);
 }
@@ -92,11 +101,12 @@ function handleRequest(e) {
         'फोन नंबर (Phone)',
         '10-अंकीय नंबर (Clean Phone)',
         'फॉर्म का प्रकार (Form Source)',
-        'स्टेटस (Status)'
+        'स्टेटस (Status)',
+        'CRM स्टेटस (CRM Status)'
       ]);
       
       // हेडर स्टाइलिंग
-      var headerRange = sheet.getRange(1, 1, 1, 6);
+      var headerRange = sheet.getRange(1, 1, 1, 7);
       headerRange.setFontWeight('bold');
       headerRange.setBackground('#214728');
       headerRange.setFontColor('#ffffff');
@@ -145,7 +155,34 @@ function handleRequest(e) {
       });
     }
 
-    // 5. अगर नया लीड है, तो शीट में नई पंक्ति जोड़ें
+    // 5. CRM API में लीड भेजें
+    var crmStatus = 'Sent from Web';
+    if (CRM_CONFIG.enabled && CRM_CONFIG.url && CRM_CONFIG.token) {
+      try {
+        var crmUrl = CRM_CONFIG.url + 
+          '?name=' + encodeURIComponent(name) +
+          '&number=' + encodeURIComponent(cleanPhone) +
+          '&token=' + encodeURIComponent(CRM_CONFIG.token) +
+          '&channel_id=' + encodeURIComponent(CRM_CONFIG.channel_id) +
+          '&product_id=' + encodeURIComponent(CRM_CONFIG.product_id);
+
+        var crmRes = UrlFetchApp.fetch(crmUrl, { muteHttpExceptions: true });
+        var crmText = crmRes.getContentText();
+        try {
+          var crmJson = JSON.parse(crmText);
+          crmStatus = crmJson.message || crmText;
+          if (crmJson.orderid) {
+            crmStatus += ' (Order: ' + crmJson.orderid + ')';
+          }
+        } catch (jsonErr) {
+          crmStatus = crmText;
+        }
+      } catch (crmErr) {
+        crmStatus = 'CRM Error: ' + crmErr.toString();
+      }
+    }
+
+    // 6. अगर नया लीड है, तो शीट में नई पंक्ति जोड़ें
     var formattedDate = Utilities.formatDate(
       new Date(),
       Session.getScriptTimeZone() || 'Asia/Kolkata',
@@ -158,11 +195,13 @@ function handleRequest(e) {
       phone,
       cleanPhone,
       formSource,
-      'New Lead'
+      'New Lead',
+      crmStatus
     ]);
 
     return createJsonResponse({
       status: 'success',
+      crmStatus: crmStatus,
       message: 'धन्यवाद! आपका ऑर्डर सफलतापूर्वक दर्ज कर लिया गया है। हम जल्द ही आपसे संपर्क करेंगे।'
     });
 

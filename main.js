@@ -1,9 +1,38 @@
 // ⚠️ GOOGLE APPS SCRIPT CONFIGURATION (Set via .env or fallback below)
-const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycby-lXmc8kjUADnipgJUCtnJTv6vr10BCKK4J9oZW3-LMu5YJC7FVhTJcwp14qw5U5Bp/exec'; 
+const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbwGEiUeYDdVoJSgk_QfkarxmJ7FmgeyovJIxukkzHN-gizDbdDLRvMVbRbz_yxPdfVC/exec'; 
 const META_PIXEL_ID = '1121352917229185';
+
+// ⚠️ CRM INTEGRATION (Macherbs Leads API)
+const CRM_URL = import.meta.env.VITE_CRM_URL || 'https://macherbs.com/apileads/leads.php';
 const CRM_TOKEN = import.meta.env.VITE_CRM_TOKEN || 'M6JNcKxcNszQwNYZW';
-const CRM_CHANNEL_ID = import.meta.env.VITE_CRM_CHANNEL_ID || 'AMT-DBT-SKYSKM';
+const CRM_CHANNEL_ID = import.meta.env.VITE_CRM_CHANNEL_ID || 'AJ-DBT-SKM';
 const CRM_PRODUCT_ID = import.meta.env.VITE_CRM_PRODUCT_ID || '52'; 
+
+// Helper function to send lead to Macherbs CRM
+async function sendLeadToCRM(name, cleanPhone) {
+  if (!CRM_URL || !CRM_TOKEN) return null;
+  try {
+    const crmParams = new URLSearchParams({
+      name: name,
+      number: cleanPhone,
+      token: CRM_TOKEN,
+      channel_id: CRM_CHANNEL_ID,
+      product_id: CRM_PRODUCT_ID
+    });
+    const crmEndpoint = `${CRM_URL}?${crmParams.toString()}`;
+    console.log('📡 Sending lead to CRM:', crmEndpoint);
+    const res = await fetch(crmEndpoint, {
+      method: 'GET',
+      cache: 'no-cache'
+    });
+    const data = await res.json();
+    console.log('✅ CRM response:', data);
+    return data;
+  } catch (err) {
+    console.warn('⚠️ CRM fetch error:', err);
+    return null;
+  }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -73,6 +102,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 3. Order Form Submissions & Google Sheet Sync with 24-hr Duplicate Check
+  let storedLeads = {};
+  try {
+    storedLeads = JSON.parse(localStorage.getItem('diabeet_submitted_leads')) || {};
+  } catch (err) {
+    storedLeads = {};
+  }
+
   const orderForms = document.querySelectorAll('.order-form-element');
   orderForms.forEach((form, index) => {
     form.addEventListener('submit', async (e) => {
@@ -150,6 +186,9 @@ document.addEventListener('DOMContentLoaded', () => {
             'आपने पहले ही सबमिट कर दिया है, कृपया 24 घंटे प्रतीक्षा करें। हमारे प्रतिनिधि आपसे जल्द ही संपर्क करेंगे।'
           );
         } else {
+          // 🚀 Send Lead to Macherbs CRM
+          await sendLeadToCRM(name, cleanPhone);
+
           // Save lead submission in localStorage
           storedLeads[cleanPhone] = Date.now();
           localStorage.setItem('diabeet_submitted_leads', JSON.stringify(storedLeads));
@@ -168,6 +207,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (error) {
         console.error('Submission error:', error);
+        // Fallback: Ensure lead is sent to CRM even if Google Sheet fails
+        try {
+          await sendLeadToCRM(name, cleanPhone);
+        } catch (crmErr) {
+          console.warn('Fallback CRM error:', crmErr);
+        }
         showStatusModal(
           'success',
           'ऑर्डर दर्ज हुआ!',
