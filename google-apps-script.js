@@ -1,15 +1,16 @@
 /**
  * ==============================================================================
  * GOOGLE APPS SCRIPT FOR DIABEET / JEEVANTATVA-DIABO LANDING PAGE
- * (PURE GOOGLE SHEETS INTEGRATION - NO CRM)
+ * (PURE 6-COLUMN LEAD CAPTURE - NO CRM COLUMNS)
  * ==============================================================================
  * 
  * निर्देश (Instructions):
  * 1. Google Sheets खोलें।
  * 2. टॉप मेनू में 'Extensions' (एक्सटेंशन) -> 'Apps Script' पर क्लिक करें।
  * 3. वहां मौजूद पुराना कोड हटाकर यह पूरा कोड पेस्ट करें और Save (💾) दबाएं।
- * 4. टॉप राइट में 'Deploy' -> 'New deployment' (या 'Manage deployments' -> Edit -> New version) चुनें।
- * 5. Who has access: "Anyone" रखकर Deploy कर दें।
+ * 4. (Optional) अगर शीट में पहले से बने 'CRM Status' और 'CRM Order ID' कॉलम हटाने हों:
+ *    - ऊपर ड्रॉपडाउन में 'removeCrmColumnsFromSheet' चुनें और Run (▶️) दबाएं।
+ * 5. टॉप राइट में 'Deploy' -> 'Manage deployments' -> ✏️ Edit -> 'New version' चुनकर Deploy कर दें।
  * ==============================================================================
  */
 
@@ -20,6 +21,7 @@ function doGet(e) {
 function doPost(e) {
   return handleRequest(e);
 }
+
 function handleRequest(e) {
   var lock = LockService.getScriptLock();
   try {
@@ -44,7 +46,7 @@ function handleRequest(e) {
         for (var key in postJson) {
           params[key] = postJson[key];
         }
-      } catch (jsonErr) { }
+      } catch (jsonErr) {}
     }
 
     var name = (params.name || '').toString().trim();
@@ -72,8 +74,8 @@ function handleRequest(e) {
     }
 
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-
-    // अगर शीट खाली है, तो सुंदर 6-कॉलम हेडर बनाएं
+    
+    // अगर शीट खाली है, तो साफ़ 6-कॉलम हेडर बनाएं (कोई CRM कॉलम नहीं)
     if (sheet.getLastRow() === 0) {
       sheet.appendRow([
         'दिनांक व समय (Timestamp)',
@@ -83,7 +85,7 @@ function handleRequest(e) {
         'फॉर्म का प्रकार (Form Source)',
         'स्टेटस (Status)'
       ]);
-
+      
       var headerRange = sheet.getRange(1, 1, 1, 6);
       headerRange.setFontWeight('bold');
       headerRange.setBackground('#214728');
@@ -97,13 +99,13 @@ function handleRequest(e) {
     var now = new Date().getTime();
     var twentyFourHours = 24 * 60 * 60 * 1000;
 
-    // 3. 24 घंटे का डुप्लिकेट चेक (Col 4 / Col 3 से 10-अंकीय नंबर मैच करें)
+    // 3. 24 घंटे का डुप्लिकेट चेक (Col 4 या Col 3 से 10-अंकीय नंबर मैच करें)
     if (lastRow > 1) {
       var data = sheet.getRange(2, 1, lastRow - 1, Math.min(sheet.getLastColumn(), 6)).getValues();
       for (var i = 0; i < data.length; i++) {
         var rowTimestamp = data[i][0];
         var rowCleanPhone = (data[i][3] || data[i][2] || '').toString().replace(/\D/g, '').slice(-10);
-
+        
         if (rowCleanPhone && rowCleanPhone === cleanPhone) {
           var submissionTime = new Date(rowTimestamp).getTime();
           if (!isNaN(submissionTime)) {
@@ -119,7 +121,7 @@ function handleRequest(e) {
       }
     }
 
-    // 4. अगर डुप्लिकेट मिला, तो दोबारा न जोड़ें
+    // 4. अगर डुप्लिकेट मिला तो दोबारा न जोड़ें
     if (isDuplicate) {
       return createJsonResponse({
         status: 'duplicate',
@@ -127,7 +129,7 @@ function handleRequest(e) {
       });
     }
 
-    // 5. नई लीड को शीट में जोड़ें
+    // 5. केवल 6 कॉलम में नई लीड सेव करें (कोई CRM डेटा नहीं)
     var formattedDate = Utilities.formatDate(
       new Date(),
       Session.getScriptTimeZone() || 'Asia/Kolkata',
@@ -165,7 +167,23 @@ function createJsonResponse(outputObject) {
 }
 
 // ==============================================================================
-// 🧪 एडिटर में सीधे टेस्ट करने के लिए (Test Sheet Insertion)
+// 🧹 शीट से पुराने CRM कॉलम (Column 7 और 8) को 1-क्लिक में हटाने के लिए:
+// ==============================================================================
+function removeCrmColumnsFromSheet() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var maxCols = sheet.getMaxColumns();
+  
+  if (maxCols > 6) {
+    var colsToDelete = maxCols - 6;
+    sheet.deleteColumns(7, colsToDelete);
+    Logger.log("✅ शीट से CRM के कॉलम सफलतापूर्वक हटा दिए गए हैं! अब सिर्फ 6 कॉलम बचे हैं।");
+  } else {
+    Logger.log("ℹ️ शीट में पहले से ही केवल 6 कॉलम हैं।");
+  }
+}
+
+// ==============================================================================
+// 🧪 सीधे Apps Script से टेस्ट लीड डालने के लिए:
 // ==============================================================================
 function testSheetSubmission() {
   var randomNum = '9' + Math.floor(100000000 + Math.random() * 900000000);
@@ -177,14 +195,14 @@ function testSheetSubmission() {
       formSource: "Apps Script Test"
     }
   };
-
+  
   Logger.log("🧪 टेस्ट लीड शीट में भेजी जा रही है: " + randomNum);
   var response = handleRequest(testEvent);
   Logger.log("📋 रिजल्ट: " + response.getContent());
 }
 
 /**
- * अगर पहले से बने पुराने ट्रिगर्स हटाना चाहें
+ * पुराने ट्रिगर्स हटाने के लिए
  */
 function removeAllTriggers() {
   var triggers = ScriptApp.getProjectTriggers();
