@@ -2,42 +2,37 @@
 const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.GOOGLE_SHEET_WEBHOOK_URL || import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbwGEiUeYDdVoJSgk_QfkarxmJ7FmgeyovJIxukkzHN-gizDbdDLRvMVbRbz_yxPdfVC/exec'; 
 const META_PIXEL_ID = '1121352917229185';
 
-// ⚠️ CRM INTEGRATION (Macherbs Leads API)
-const CRM_URL = import.meta.env.CRM_URL || import.meta.env.VITE_CRM_URL || 'https://macherbs.com/apileads/leads.php';
-const CRM_TOKEN = import.meta.env.CRM_TOKEN || import.meta.env.VITE_CRM_TOKEN || 'M6JNcKxcNszQwNYZW';
-const CRM_CHANNEL_ID = import.meta.env.CRM_CHANNEL_ID || import.meta.env.VITE_CRM_CHANNEL_ID || 'AJ-DBT-SKM';
-const CRM_PRODUCT_ID = import.meta.env.CRM_PRODUCT_ID || import.meta.env.VITE_CRM_PRODUCT_ID || '52'; 
+// 📡 DIRECT CRM INTEGRATION (Macherbs Leads API - Direct Curl Endpoint)
+const CRM_CONFIG = {
+  url: 'https://macherbs.com/apileads/leads.php',
+  channel_id: 'AJ-DBT-SKM',
+  token: 'M6JNcKxcNszQwNYZW',
+  product_id: '52'
+};
 
-// Helper function to send lead to Macherbs CRM
 async function sendLeadToCRM(name, cleanPhone) {
-  const activeUrl = CRM_URL || 'https://macherbs.com/apileads/leads.php';
-  const activeToken = CRM_TOKEN || 'M6JNcKxcNszQwNYZW';
-  const activeChannel = CRM_CHANNEL_ID || 'AJ-DBT-SKM';
-  const activeProduct = CRM_PRODUCT_ID || '52';
-
   try {
     const crmParams = new URLSearchParams({
       name: name,
       number: cleanPhone,
-      token: activeToken,
-      channel_id: activeChannel,
-      product_id: activeProduct
+      channel_id: CRM_CONFIG.channel_id,
+      token: CRM_CONFIG.token,
+      product_id: CRM_CONFIG.product_id
     });
-    const crmEndpoint = `${activeUrl}?${crmParams.toString()}`;
-    console.log('📡 Sending lead to CRM:', crmEndpoint);
+    const crmEndpoint = `${CRM_CONFIG.url}?${crmParams.toString()}`;
+    console.log('📡 Sending lead directly to CRM (Curl Endpoint):', crmEndpoint);
     const res = await fetch(crmEndpoint, {
       method: 'GET',
       cache: 'no-cache'
     });
     const data = await res.json();
-    console.log('✅ CRM response:', data);
+    console.log('✅ CRM Direct Response:', data);
     return data;
   } catch (err) {
     console.warn('⚠️ CRM fetch error:', err);
     return null;
   }
 }
-
 document.addEventListener('DOMContentLoaded', () => {
 
   // 1. WhatsApp Float Button & Order Modal Popup
@@ -158,7 +153,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       try {
-        // Send to Google Sheet Webhook
+        // 🚀 1. Send Lead Directly to CRM via Curl Endpoint (Client-side, Indian Network)
+        const crmPromise = sendLeadToCRM(name, cleanPhone);
+
+        // 2. Send to Google Sheet Webhook (for Sheet Backup & Duplicate Check)
         let sheetRes = null;
         if (GOOGLE_SHEET_WEBHOOK_URL && GOOGLE_SHEET_WEBHOOK_URL.trim() !== '') {
           const sheetParams = new URLSearchParams({
@@ -183,6 +181,9 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
 
+        // Wait for CRM response
+        const crmData = await crmPromise;
+
         // Duplicate Check strictly from Google Sheet response
         const isSheetDuplicate = sheetRes && (sheetRes.status === 'duplicate' || sheetRes.result === 'duplicate');
 
@@ -196,18 +197,15 @@ document.addEventListener('DOMContentLoaded', () => {
             'आपने पहले ही सबमिट कर दिया है, कृपया 24 घंटे प्रतीक्षा करें। हमारे प्रतिनिधि आपसे जल्द ही संपर्क करेंगे।'
           );
         } else {
-          // 🚀 Send Lead to Macherbs CRM
-          await sendLeadToCRM(name, cleanPhone);
-
           // Save lead submission in localStorage
           storedLeads[cleanPhone] = Date.now();
           localStorage.setItem('diabeet_submitted_leads', JSON.stringify(storedLeads));
 
-          showStatusModal(
-            'success',
-            'ऑर्डर दर्ज हुआ!',
-            'धन्यवाद! आपका ऑर्डर सफलतापूर्वक दर्ज कर लिया गया है। हम जल्द ही आपसे संपर्क करेंगे।'
-          );
+          const orderMsg = (crmData && crmData.orderid && crmData.orderid !== 0)
+            ? `धन्यवाद! आपका ऑर्डर सफलतापूर्वक दर्ज कर लिया गया है। (Order ID: ${crmData.orderid})`
+            : 'धन्यवाद! आपका ऑर्डर सफलतापूर्वक दर्ज कर लिया गया है। हम जल्द ही आपसे संपर्क करेंगे।';
+
+          showStatusModal('success', 'ऑर्डर दर्ज हुआ!', orderMsg);
 
           nameInput.value = '';
           phoneInput.value = '';
@@ -217,12 +215,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (error) {
         console.error('Submission error:', error);
-        // Fallback: Ensure lead is sent to CRM even if Google Sheet fails
-        try {
-          await sendLeadToCRM(name, cleanPhone);
-        } catch (crmErr) {
-          console.warn('Fallback CRM error:', crmErr);
-        }
+        // Fallback: Ensure CRM gets the lead directly
+        sendLeadToCRM(name, cleanPhone);
         showStatusModal(
           'success',
           'ऑर्डर दर्ज हुआ!',

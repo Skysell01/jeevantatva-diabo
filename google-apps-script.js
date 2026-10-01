@@ -1,33 +1,17 @@
 /**
  * ==============================================================================
  * GOOGLE APPS SCRIPT FOR DIABEET / JEEVANTATVA-DIABO LANDING PAGE
+ * (PURE GOOGLE SHEETS INTEGRATION - NO CRM)
  * ==============================================================================
  * 
  * निर्देश (Instructions):
- * 1. Google Sheets खोलें (जिसमें डेटा सेव करना है)।
+ * 1. Google Sheets खोलें।
  * 2. टॉप मेनू में 'Extensions' (एक्सटेंशन) -> 'Apps Script' पर क्लिक करें।
- * 3. वहां मौजूद पुराना कोड हटाकर यह पूरा कोड पेस्ट करें।
- * 4. ऊपर 'Save' (💾) आइकॉन पर क्लिक करें।
- * 5. टॉप राइट में 'Deploy' बटन दबाएं -> 'New deployment' चुनें।
- * 6. गियर आइकॉन ⚙️ पर क्लिक करके 'Web app' चुनें।
- * 7. सेटिंग्स में:
- *    - Description: "Diabeet Lead Capture"
- *    - Execute as: "Me" (आपकी ईमेल आईडी)
- *    - Who has access: "Anyone" (यह सबसे ज़रूरी है, ताकि वेबसाइट से डेटा आ सके)
- * 8. 'Deploy' पर क्लिक करें और परमिशन Authorize करें ('Advanced' -> 'Go to Untitled project (unsafe)').
- * 9. जो 'Web app URL' मिलेगा (उदा: https://script.google.com/macros/s/..../exec),
- *    उसे कॉपी करके अपनी वेबसाइट के `main.js` में `GOOGLE_SHEET_WEBHOOK_URL` पर डाल दें।
+ * 3. वहां मौजूद पुराना कोड हटाकर यह पूरा कोड पेस्ट करें और Save (💾) दबाएं।
+ * 4. टॉप राइट में 'Deploy' -> 'New deployment' (या 'Manage deployments' -> Edit -> New version) चुनें।
+ * 5. Who has access: "Anyone" रखकर Deploy कर दें।
  * ==============================================================================
  */
-
-// CRM Integration Settings (Macherbs Leads API)
-var CRM_CONFIG = {
-  enabled: true,
-  url: 'https://macherbs.com/apileads/leads.php',
-  token: 'M6JNcKxcNszQwNYZW',
-  channel_id: 'AJ-DBT-SKM',
-  product_id: '52'
-};
 
 function doGet(e) {
   return handleRequest(e);
@@ -36,10 +20,8 @@ function doGet(e) {
 function doPost(e) {
   return handleRequest(e);
 }
-
 function handleRequest(e) {
   var lock = LockService.getScriptLock();
-  // 10 सेकंड तक इंतज़ार करें ताकि एक ही समय पर आने वाली रिक्वेस्ट सुरक्षित रहें
   try {
     lock.waitLock(10000);
   } catch (err) {
@@ -62,9 +44,7 @@ function handleRequest(e) {
         for (var key in postJson) {
           params[key] = postJson[key];
         }
-      } catch (jsonErr) {
-        // अगर JSON नहीं है तो e.parameter से काम चलेगा
-      }
+      } catch (jsonErr) { }
     }
 
     var name = (params.name || '').toString().trim();
@@ -78,7 +58,7 @@ function handleRequest(e) {
       });
     }
 
-    // 2. फोन नंबर को साफ करें (केवल अंतिम 10 अंक लें)
+    // 2. 10-अंकीय फोन नंबर निकालें
     var cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length > 10) {
       cleanPhone = cleanPhone.slice(-10);
@@ -87,13 +67,13 @@ function handleRequest(e) {
     if (cleanPhone.length < 10) {
       return createJsonResponse({
         status: 'error',
-        message: 'अमान्य फोन नंबर।'
+        message: 'अमान्य फोन नंबर। कृपया 10 अंकों का मोबाइल नंबर दर्ज करें।'
       });
     }
 
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    
-    // अगर शीट खाली है, तो सुंदर हेडर बनाएं
+
+    // अगर शीट खाली है, तो सुंदर 6-कॉलम हेडर बनाएं
     if (sheet.getLastRow() === 0) {
       sheet.appendRow([
         'दिनांक व समय (Timestamp)',
@@ -101,53 +81,37 @@ function handleRequest(e) {
         'फोन नंबर (Phone)',
         '10-अंकीय नंबर (Clean Phone)',
         'फॉर्म का प्रकार (Form Source)',
-        'स्टेटस (Status)',
-        'CRM स्टेटस (CRM Status)'
+        'स्टेटस (Status)'
       ]);
-      
-      // हेडर स्टाइलिंग
-      var headerRange = sheet.getRange(1, 1, 1, 7);
+
+      var headerRange = sheet.getRange(1, 1, 1, 6);
       headerRange.setFontWeight('bold');
       headerRange.setBackground('#214728');
       headerRange.setFontColor('#ffffff');
       headerRange.setHorizontalAlignment('center');
       sheet.setFrozenRows(1);
-    } else if (sheet.getRange(1, 7).getValue() === '') {
-      // अगर शीट में पहले से डेटा है पर 7वां CRM स्टेटस कॉलम नहीं है, तो हेडर जोड़ें
-      var crmHeaderCell = sheet.getRange(1, 7);
-      crmHeaderCell.setValue('CRM स्टेटस (CRM Status)');
-      crmHeaderCell.setFontWeight('bold');
-      crmHeaderCell.setBackground('#214728');
-      crmHeaderCell.setFontColor('#ffffff');
-      crmHeaderCell.setHorizontalAlignment('center');
     }
 
     var lastRow = sheet.getLastRow();
     var isDuplicate = false;
     var now = new Date().getTime();
-    var twentyFourHours = 24 * 60 * 60 * 1000; // 24 घंटे मिलीसेकंड में
+    var twentyFourHours = 24 * 60 * 60 * 1000;
 
-    // 3. डुप्लिकेट नंबर चेक लॉजिक (24 घंटे की सीमा)
+    // 3. 24 घंटे का डुप्लिकेट चेक (Col 4 / Col 3 से 10-अंकीय नंबर मैच करें)
     if (lastRow > 1) {
-      // पहली रो हेडर है, इसलिए 2 से लेकर lastRow तक पढ़ें
-      var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
-      
+      var data = sheet.getRange(2, 1, lastRow - 1, Math.min(sheet.getLastColumn(), 6)).getValues();
       for (var i = 0; i < data.length; i++) {
         var rowTimestamp = data[i][0];
-        // कॉलम D (index 3) में साफ फोन नंबर है
         var rowCleanPhone = (data[i][3] || data[i][2] || '').toString().replace(/\D/g, '').slice(-10);
-        
+
         if (rowCleanPhone && rowCleanPhone === cleanPhone) {
           var submissionTime = new Date(rowTimestamp).getTime();
-          
           if (!isNaN(submissionTime)) {
-            // अगर 24 घंटे के अंदर सबमिट किया गया है
             if ((now - submissionTime) < twentyFourHours) {
               isDuplicate = true;
               break;
             }
           } else {
-            // अगर टाइमस्टैम्प पार्स नहीं हो पा रहा है तो भी डुप्लिकेट मानें
             isDuplicate = true;
             break;
           }
@@ -155,7 +119,7 @@ function handleRequest(e) {
       }
     }
 
-    // 4. अगर डुप्लिकेट मिला, तो शीट में दोबारा न जोड़ें और मैसेज भेजें
+    // 4. अगर डुप्लिकेट मिला, तो दोबारा न जोड़ें
     if (isDuplicate) {
       return createJsonResponse({
         status: 'duplicate',
@@ -163,48 +127,7 @@ function handleRequest(e) {
       });
     }
 
-    // 5. CRM API में लीड भेजें
-    var crmStatus = 'Pending';
-    if (CRM_CONFIG.enabled && CRM_CONFIG.url && CRM_CONFIG.token) {
-      try {
-        var crmUrl = CRM_CONFIG.url + 
-          '?name=' + encodeURIComponent(name) +
-          '&number=' + encodeURIComponent(cleanPhone) +
-          '&token=' + encodeURIComponent(CRM_CONFIG.token) +
-          '&channel_id=' + encodeURIComponent(CRM_CONFIG.channel_id) +
-          '&product_id=' + encodeURIComponent(CRM_CONFIG.product_id);
-
-        var crmRes = UrlFetchApp.fetch(crmUrl, { muteHttpExceptions: true });
-        var crmText = (crmRes.getContentText() || '').trim();
-        Logger.log("📡 CRM Raw Response: " + crmText);
-        
-        var orderId = '';
-        try {
-          var crmJson = JSON.parse(crmText);
-          orderId = crmJson.orderid || crmJson.order_id || crmJson.orderId || '';
-        } catch (jsonErr) {}
-
-        // अगर JSON में सीधा orderid नहीं मिला, तो टेक्स्ट से 6+ अंकों का नंबर निकालें
-        if (!orderId && crmText) {
-          var match = crmText.match(/(\d{6,})/);
-          if (match) {
-            orderId = match[1];
-          }
-        }
-
-        if (crmText.toLowerCase().indexOf('new lead captured') !== -1) {
-          crmStatus = '✅ New Lead Captured' + (orderId ? ' (Order: ' + orderId + ')' : '');
-        } else if (crmText.toLowerCase().indexOf('user already exist') !== -1) {
-          crmStatus = '⚠️ User Already Exist';
-        } else {
-          crmStatus = crmText;
-        }
-      } catch (crmErr) {
-        crmStatus = '❌ CRM Error: ' + crmErr.toString();
-      }
-    }
-
-    // 6. अगर नया लीड है, तो शीट में नई पंक्ति जोड़ें
+    // 5. नई लीड को शीट में जोड़ें
     var formattedDate = Utilities.formatDate(
       new Date(),
       Session.getScriptTimeZone() || 'Asia/Kolkata',
@@ -214,17 +137,15 @@ function handleRequest(e) {
     sheet.appendRow([
       formattedDate,
       name,
-      phone,
-      cleanPhone,
+      "'" + phone,
+      "'" + cleanPhone,
       formSource,
-      'New Lead',
-      crmStatus
+      'New Lead'
     ]);
 
     return createJsonResponse({
       status: 'success',
-      crmStatus: crmStatus,
-      message: 'धन्यवाद! आपका ऑर्डर सफलतापूर्वक दर्ज कर लिया गया है। हम जल्द ही आपसे संपर्क करेंगे।'
+      message: 'धन्यवाद! आपका विवरण सफलतापूर्वक प्राप्त हो गया है। हम जल्द ही आपसे संपर्क करेंगे।'
     });
 
   } catch (error) {
@@ -244,21 +165,31 @@ function createJsonResponse(outputObject) {
 }
 
 // ==============================================================================
-// 🧪 एडिटर में Run बटन दबाकर टेस्ट करने के लिए:
+// 🧪 एडिटर में सीधे टेस्ट करने के लिए (Test Sheet Insertion)
 // ==============================================================================
-function testSubmission() {
+function testSheetSubmission() {
   var randomNum = '9' + Math.floor(100000000 + Math.random() * 900000000);
   var testEvent = {
     parameter: {
-      name: "Apps Script Test Lead",
+      name: "Direct Sheet Test",
       phone: randomNum,
       cleanPhone: randomNum,
-      formSource: "Direct Apps Script Run"
+      formSource: "Apps Script Test"
     }
   };
-  
-  Logger.log("🧪 टेस्ट लीड भेजी जा रही है: " + randomNum);
+
+  Logger.log("🧪 टेस्ट लीड शीट में भेजी जा रही है: " + randomNum);
   var response = handleRequest(testEvent);
   Logger.log("📋 रिजल्ट: " + response.getContent());
 }
 
+/**
+ * अगर पहले से बने पुराने ट्रिगर्स हटाना चाहें
+ */
+function removeAllTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    ScriptApp.deleteTrigger(triggers[i]);
+  }
+  Logger.log("✅ सभी ट्रिगर्स हटा दिए गए हैं।");
+}
